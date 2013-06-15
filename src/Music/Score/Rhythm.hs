@@ -27,14 +27,13 @@ module Music.Score.Rhythm (
         dotMod,
   ) where
 
-import Prelude hiding (foldr, concat, foldl, mapM, concatMap, maximum, sum, minimum)
-
 import Data.Semigroup
 import Control.Applicative
-import Control.Monad (ap, join, MonadPlus(..))
+import Control.Monad
+import Control.Monad.Plus
 import Data.Maybe
 import Data.Either
-import Data.Foldable
+import Data.Foldable (Foldable(..))
 import Data.Traversable
 import Data.Function (on)
 import Data.Ord (comparing)
@@ -95,6 +94,7 @@ instance VectorSpace a => VectorSpace [a] where
     a *^ xs = fmap (a*^) xs
 
 Beat d x `subDur` d' = Beat (d-d') x
+b `divDur` d = recip d `stretch` b
 
 type instance Time Rhythm = TimeT
 
@@ -132,6 +132,11 @@ kTupletMods = [2/3, 4/5, {-4/6,-} 4/7, 8/9]
 kMaxTupleDepth :: Int
 kMaxTupleDepth = 1
 
+-- Maximum number of beat divisions
+-- This can be quite high, but is needed to terminate the new parser
+kMaxDepth :: Int
+kMaxDepth = 2
+
 -- Allowed maximum number of dots.
 kMaxDots :: Int
 kMaxDots = 2
@@ -164,7 +169,7 @@ tupleDepth :: (Int -> Int) -> RState -> RState
 tupleDepth f (RState tm ts td d) = RState tm ts (f td) d
 
 depth :: (Int -> Int) -> RState -> RState
-depth f (RState tm ts td d) = RState tm ts (f td) d
+depth f (RState tm ts td d) = RState tm ts td (f d)
 
 -- |
 -- A @RhytmParser a b@ converts [(Dur, a)] to b.
@@ -187,13 +192,14 @@ quantize' p = left show . runParser p mempty ""
 
 -- Matches a 2-based rhytm group (such as a 4/4 or 2/4 bar)
 rhythm2 :: Tiable a => RhythmParser a (Rhythm a)
-rhythm2 = mzero
-    <|> dur 1              
-    <|> (group $ fmap (withTimeMul $ 1/2) $ [rhythm2, rhythm2])
+rhythm2 = checkDepth $ (mzero
+    <|> dur 1
+    <|> addLevel rhythm2)              
+    -- <|> (group $ fmap (withTimeMul $ 1/2) $ [rhythm2, rhythm2])
     -- <|> try (seq2 rhythm2 rhythm2)
     -- <|> try (seq2 rhythm2 rhythm3)
     -- <|> try (rhythm2 >> rhythm2 >> rhythm2) -- syncopation etc
-    <|> (tuplet rhythm2)                   -- fixme should recur on 2 or 3
+    -- <|> (tuplet rhythm2)                   -- fixme should recur on 2 or 3
 
 -- Matches a 2-based rhytm group (such as a 3/4 or 3/8 bar)
 rhythm3 :: Tiable a => RhythmParser a (Rhythm a)
@@ -261,7 +267,7 @@ dur d' = do
     state <- getState
     let tm = _timeMul state
     let ts = _timeAdd state
-    (\d -> (recip tm `stretch` d) `subDur` ts) <$> match (\d _ ->
+    (\d -> (d `divDur` tm) `subDur` ts) <$> matchBeat (\d _ ->
         d - ts > 0
         &&
         d' == (d / tm) - ts
@@ -273,7 +279,7 @@ beat = do
     state <- getState
     let tm = _timeMul state
     let ts = _timeAdd state
-    (\d -> (recip tm `stretch` d) `subDur` ts) <$> match (\d _ ->
+    (\d -> (d `divDur` tm) `subDur` ts) <$> matchBeat (\d _ ->
         d - ts > 0
         &&
         isDivisibleBy 2 ((d / tm) - ts)
@@ -305,10 +311,23 @@ tuplet' :: Tiable a => RhythmParser a (Rhythm a) -> Dur -> RhythmParser a (Rhyth
 tuplet' p d = do
     state <- getState
     onlyIf (_tupleDepth state < kMaxTupleDepth) $ do
-        fmap (Tuplet d) (withTimeMul d . addTuplet $ p)
+        fmap (Tuplet d) (withTimeMul d . addTupletLevel $ p)
 
-addTuplet :: RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
-addTuplet = withState (tupleDepth succ) (tupleDepth pred)
+addTupletLevel :: RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
+addTupletLevel = withState (tupleDepth succ) (tupleDepth pred)
+
+addLevel :: RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
+addLevel = withState (depth succ) (depth pred)
+
+checkTupleDepth :: RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
+checkTupleDepth p = do
+    state <- getState
+    onlyIf (_tupleDepth state < kMaxTupleDepth) p
+
+checkDepth :: RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
+checkDepth p = do
+    state <- getState
+    onlyIf (_depth state < kMaxDepth) p
 
 withTimeMul :: Dur -> RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
 withTimeMul d = withState (timeMul (* d)) (timeMul (/ d))
@@ -319,22 +338,22 @@ withTimeAdd d = withState (timeAdd (+ d)) (timeAdd (subtract d))
 
 -------------------------------------------------------------------------------------
 
--- Matches a (duration, value) pair iff the predicate matches, returns beat
-match :: Tiable a => (Dur -> a -> Bool) -> RhythmParser a (Rhythm a)
-match p = tokenPrim show next test
+-- Matches a (duration, value) pair iff the predicate beats, returns beat
+matchBeat :: Tiable a => (Dur -> a -> Bool) -> RhythmParser a (Rhythm a)
+matchBeat p = tokenPrim show next test
     where
         show x        = ""
         next pos _ _  = updatePosChar pos 'x'
         test (d,x)    = if p d x then Just (Beat d x) else Nothing
 
 
--- | Similar to 'many1', but tries longer sequences before trying one.
-many1long :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
-many1long p = try (many2 p) <|> fmap return p
-
--- | Similar to 'many1', but applies the parser 2 or more times.
-many2 :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
-many2 p = do { x <- p; xs <- many1 p; return (x : xs) }
+-- -- | Similar to 'many1', but tries longer sequences before trying one.
+-- many1long :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
+-- many1long p = try (many2 p) <|> fmap return p
+-- 
+-- -- | Similar to 'many1', but applies the parser 2 or more times.
+-- many2 :: Stream s m t => ParsecT s u m a -> ParsecT s u m [a]
+-- many2 p = do { x <- p; xs <- many1 p; return (x : xs) }
 
 withState :: Monad m => (u -> u) -> (u -> u) -> ParsecT s u m b -> ParsecT s u m b
 withState f g p = do { modifyState f; a <- p; modifyState g; return a }
@@ -351,8 +370,8 @@ atEnd p = do
         notFollowedBy' p = try $ (try p >> unexpected "") <|> return ()
         anyToken'        = tokenPrim (const "") (\pos _ _ -> pos) Just
 
-onlyIf :: MonadPlus m => Bool -> m b -> m b
-onlyIf b p = if b then p else mzero
+onlyIf :: MonadPlus m => Bool -> m a -> m a
+onlyIf p = mfilter (const p)
 
 logBaseR :: forall a . (RealFloat a, Floating a) => Rational -> Rational -> a
 logBaseR k n
