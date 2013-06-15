@@ -86,6 +86,14 @@ instance VectorSpace (Rhythm a) where
 instance Stretchable Rhythm where
     a `stretch` Beat d x = Beat (a*d) x
 
+instance AdditiveGroup a => AdditiveGroup [a] where
+    zeroV = error ""
+    negateV = error ""
+    (^+^) = error ""
+instance VectorSpace a => VectorSpace [a] where
+    type Scalar [a] = Scalar a
+    a *^ xs = fmap (a*^) xs
+
 Beat d x `subDur` d' = Beat (d-d') x
 
 type instance Time Rhythm = TimeT
@@ -131,27 +139,32 @@ kMaxDots = 2
 
 
 data RState = RState {
-        _timeMod     :: Dur, -- time modification; notatedDur * _timeMod = actualDur
-        _timeSub     :: Dur, -- time subtraction (in bound note)
-        _tupleDepth  :: Int           
+        _timeMul     :: Dur, -- time modification; notatedDur * _timeMul = actualDur
+        _timeAdd     :: Dur, -- time subtraction (in bound note)
+        _tupleDepth  :: Int,
+        _depth       :: Int
     }
 
 instance Monoid RState where
     mempty = RState { 
-        _timeMod     = 1, 
-        _timeSub     = 0, 
-        _tupleDepth  = 0 
+        _timeMul     = 1, 
+        _timeAdd     = 0, 
+        _tupleDepth  = 0,
+        _depth       = 0
     }
     a `mappend` _ = a
 
-timeMod :: (Dur -> Dur) -> RState -> RState
-timeMod f (RState tm ts td) = RState (f tm) ts td
+timeMul :: (Dur -> Dur) -> RState -> RState
+timeMul f (RState tm ts td d) = RState (f tm) ts td d
 
-timeSub :: (Dur -> Dur) -> RState -> RState
-timeSub f (RState tm ts td) = RState tm (f ts) td
+timeAdd :: (Dur -> Dur) -> RState -> RState
+timeAdd f (RState tm ts td d) = RState tm (f ts) td d
 
 tupleDepth :: (Int -> Int) -> RState -> RState
-tupleDepth f (RState tm ts td) = RState tm ts (f td)
+tupleDepth f (RState tm ts td d) = RState tm ts (f td) d
+
+depth :: (Int -> Int) -> RState -> RState
+depth f (RState tm ts td d) = RState tm ts (f td) d
 
 -- |
 -- A @RhytmParser a b@ converts [(Dur, a)] to b.
@@ -172,34 +185,11 @@ quantize' p = left show . runParser p mempty ""
 
 
 
-
-
--- Matches any rhythm
-rhythm :: Tiable a => RhythmParser a (Rhythm a)
-rhythm = Group <$> many1 (rhythm' <|> bound)
-
-rhythmNoBound :: Tiable a => RhythmParser a (Rhythm a)
-rhythmNoBound = Group <$> many1 rhythm'
-
-rhythm' :: Tiable a => RhythmParser a (Rhythm a)
-rhythm' = mzero
-    <|> beat
-    <|> dotted
-    <|> tuplet rhythmNoBound
-
-
-
-
-
-
-
-
-
 -- Matches a 2-based rhytm group (such as a 4/4 or 2/4 bar)
 rhythm2 :: Tiable a => RhythmParser a (Rhythm a)
 rhythm2 = mzero
     <|> dur 1              
-    <|> (group $ fmap (withTimeMod $ 1/2) $ [rhythm2, rhythm2])
+    <|> (group $ fmap (withTimeMul $ 1/2) $ [rhythm2, rhythm2])
     -- <|> try (seq2 rhythm2 rhythm2)
     -- <|> try (seq2 rhythm2 rhythm3)
     -- <|> try (rhythm2 >> rhythm2 >> rhythm2) -- syncopation etc
@@ -232,8 +222,35 @@ group ps = do
 
 
 
--- (notatedDur + timeSub) * timeMod = actualDur
--- notatedDur = actualDur / timeMod - timeSub
+-- Matches any rhythm
+rhythm :: Tiable a => RhythmParser a (Rhythm a)
+rhythm = Group <$> many1 (rhythm' <|> bound)
+
+rhythmNoBound :: Tiable a => RhythmParser a (Rhythm a)
+rhythmNoBound = Group <$> many1 rhythm'
+
+rhythm' :: Tiable a => RhythmParser a (Rhythm a)
+rhythm' = mzero
+    <|> beat
+    <|> dotted
+    <|> tuplet rhythmNoBound
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- (notatedDur + timeAdd) * timeMul = actualDur
+-- notatedDur = actualDur / timeMul - timeAdd
 
 -- 1/2+(1/8*2/3)
 
@@ -241,21 +258,25 @@ group ps = do
 -- Matches exactly the given duration (modified by context).
 dur :: Tiable a => Dur -> RhythmParser a (Rhythm a)
 dur d' = do
-    RState tm ts _ <- getState
-    (\d -> (d `subDur` ts)^/tm) <$> match (\d _ ->
+    state <- getState
+    let tm = _timeMul state
+    let ts = _timeAdd state
+    (\d -> (recip tm `stretch` d) `subDur` ts) <$> match (\d _ ->
         d - ts > 0
         &&
-        d' == (d - ts) / tm
+        d' == (d / tm) - ts
         )
 
 -- Matches a beat divisible by 2 (modified by context)
 beat :: Tiable a => RhythmParser a (Rhythm a)
 beat = do
-    RState tm ts _ <- getState
-    (\d -> (d^/tm) `subDur` ts) <$> match (\d _ ->
+    state <- getState
+    let tm = _timeMul state
+    let ts = _timeAdd state
+    (\d -> (recip tm `stretch` d) `subDur` ts) <$> match (\d _ ->
         d - ts > 0
         &&
-        isDivisibleBy 2 ((d - ts) / tm)
+        isDivisibleBy 2 ((d / tm) - ts)
         ) 
 
 -- | Matches a dotted rhythm
@@ -263,7 +284,7 @@ dotted :: Tiable a => RhythmParser a (Rhythm a)
 dotted = msum . fmap dotted' $ [1..kMaxDots]
 
 dotted' :: Tiable a => Int -> RhythmParser a (Rhythm a)
-dotted' n = fmap (Dotted n) $ withTimeMod (dotMod n) beat
+dotted' n = fmap (Dotted n) $ withTimeMul (dotMod n) beat
 
 -- | Matches a bound rhythm
 bound :: Tiable a => RhythmParser a (Rhythm a)
@@ -271,7 +292,7 @@ bound = bound' (1/2)
 
 bound' :: Tiable a => Dur -> RhythmParser a (Rhythm a)
 bound' d = do
-    a <- withTimeSub d beat
+    a <- withTimeAdd d beat
     let (b,c) = toTied $ getBeatValue a
     return $ Group [Beat (getBeatDuration a) $ b, Beat (1/2) $ c]
 
@@ -282,18 +303,18 @@ tuplet p = msum . fmap (tuplet' p) $ kTupletMods
 -- tuplet' 2/3 for triplet, 4/5 for quintuplet etc
 tuplet' :: Tiable a => RhythmParser a (Rhythm a) -> Dur -> RhythmParser a (Rhythm a)
 tuplet' p d = do
-    RState _ _ depth <- getState
-    onlyIf (depth < kMaxTupleDepth) $ do
-        fmap (Tuplet d) (withTimeMod d . addTuplet $ p)
+    state <- getState
+    onlyIf (_tupleDepth state < kMaxTupleDepth) $ do
+        fmap (Tuplet d) (withTimeMul d . addTuplet $ p)
 
 addTuplet :: RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
 addTuplet = withState (tupleDepth succ) (tupleDepth pred)
 
-withTimeMod :: Dur -> RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
-withTimeMod d = withState (timeMod (* d)) (timeMod (/ d))
+withTimeMul :: Dur -> RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
+withTimeMul d = withState (timeMul (* d)) (timeMul (/ d))
 
-withTimeSub :: Dur -> RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
-withTimeSub d = withState (timeMod (+ d)) (timeMod (subtract d))
+withTimeAdd :: Dur -> RhythmParser a (Rhythm a) -> RhythmParser a (Rhythm a)
+withTimeAdd d = withState (timeAdd (+ d)) (timeAdd (subtract d))
 
 
 -------------------------------------------------------------------------------------
