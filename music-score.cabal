@@ -114,7 +114,7 @@ library
                         Music.Score.Export.Midi
                         Music.Score.Export.SuperCollider
                         Music.Score.Export.Lilypond
-                        Music.Score.Export.MusicXml
+                        -- Music.Score.Export.MusicXml
                         Music.Score.Export.ArticulationNotation
                         Music.Score.Export.DynamicNotation
                         Music.Score.Import.Abc
