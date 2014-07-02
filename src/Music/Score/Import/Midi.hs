@@ -73,7 +73,7 @@ type IsMidi a = (
     -- HasPitch a,
     Num (Pitch a),
     HasTremolo a,
-    HasArticulation a a,
+    HasArticulation' a (Articulation a),
     Tiable a
     )
 

@@ -30,9 +30,6 @@
 
 module Music.Score.Export.Backend (
     HasOrdPart,
-    HasDynamic3,
-    HasDynamicNotation,
-
     HasBackend(..),
     HasBackendScore(..),
     HasBackendNote(..),
@@ -72,21 +69,23 @@ import Music.Score.Dynamics
 import Music.Score.Part
 
 
-type HasDynamic3 a a' a'' = (
-  HasDynamic' a,
-  HasDynamic' a'',
-  HasDynamic a  a',
-  HasDynamic a' a'',
-  HasDynamic a  a''
-  )
+-- type HasDynamic3 a a' a'' = (
+--   HasDynamic' a,
+--   HasDynamic' a'',
+--   HasDynamic a  a',
+--   HasDynamic a' a'',
+--   HasDynamic a  a''
+--   )
+-- 
+-- type HasDynamicNotation a b c = (
+--   HasDynamic3 a b c,
+--   Dynamic b  ~ Ctxt (Dynamic a),
+--   Dynamic c ~ DynamicNotation,
+--   Real (Dynamic a),
+--   Part (SetDynamic (Dynamic a) a) ~ Part (SetDynamic DynamicNotation b)
+--  )
 
-type HasDynamicNotation a b c = (
-  HasDynamic3 a b c,
-  Dynamic b  ~ Ctxt (Dynamic a),
-  Dynamic c ~ DynamicNotation,
-  Real (Dynamic a),
-  Part (SetDynamic (Dynamic a) a) ~ Part (SetDynamic DynamicNotation b)
- )
+-- TODO move
 type HasOrdPart a = (HasPart' a (Part a), Ord (Part a))
 
 

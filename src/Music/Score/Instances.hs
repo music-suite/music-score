@@ -118,29 +118,29 @@ instance HasPitches a b pa pb => HasPitches (ArticulationT p a) (ArticulationT p
 
 
 type instance Dynamic (PartT p a) = Dynamic a
-type instance SetDynamic b (PartT p a) = PartT p (SetDynamic b a)
+-- type instance SetDynamic b (PartT p a) = PartT p (SetDynamic b a)
 
-instance HasDynamic a b => HasDynamic (PartT p a) (PartT p b) where
+instance HasDynamic a b da db => HasDynamic (PartT p a) (PartT p b) da db where
   dynamic = _Wrapped . _2 . dynamic
-instance HasDynamics a b => HasDynamics (PartT p a) (PartT p b) where
+instance HasDynamics a b da db => HasDynamics (PartT p a) (PartT p b) da db where
   dynamics = _Wrapped . _2 . dynamics
 
 type instance Dynamic (ArticulationT p a) = Dynamic a
-type instance SetDynamic b (ArticulationT p a) = ArticulationT p (SetDynamic b a)
+-- type instance SetDynamic b (ArticulationT p a) = ArticulationT p (SetDynamic b a)
 
-instance HasDynamic a b => HasDynamic (ArticulationT p a) (ArticulationT p b) where
+instance HasDynamic a b da db => HasDynamic (ArticulationT p a) (ArticulationT p b) da db where
   dynamic = _Wrapped . _2 . dynamic
-instance HasDynamics a b => HasDynamics (ArticulationT p a) (ArticulationT p b) where
+instance HasDynamics a b da db => HasDynamics (ArticulationT p a) (ArticulationT p b) da db where
   dynamics = _Wrapped . _2 . dynamics
 
 
 
 type instance Articulation (PartT p a) = Articulation a
-type instance SetArticulation b (PartT p a) = PartT p (SetArticulation b a)
+-- type instance SetArticulation b (PartT p a) = PartT p (SetArticulation b a)
 
-instance HasArticulation a b => HasArticulation (PartT p a) (PartT p b) where
+instance HasArticulation a b aa ab => HasArticulation (PartT p a) (PartT p b) aa ab where
   articulation = _Wrapped . _2 . articulation
-instance HasArticulations a b => HasArticulations (PartT p a) (PartT p b) where
+instance HasArticulations a b aa ab => HasArticulations (PartT p a) (PartT p b) aa ab where
   articulations = _Wrapped . _2 . articulations
 
 -- TODO move up?
@@ -152,17 +152,17 @@ instance (HasPitch a b p q) => HasPitch (ColorT a) (ColorT b) p q where
   pitch = _Wrapped . pitch
 
 type instance Dynamic (ColorT a)        = Dynamic a
-type instance SetDynamic g (ColorT a)   = ColorT (SetDynamic g a)
-instance (HasDynamics a b) => HasDynamics (ColorT a) (ColorT b) where
+-- type instance SetDynamic g (ColorT a)   = ColorT (SetDynamic g a)
+instance (HasDynamics a b da db) => HasDynamics (ColorT a) (ColorT b) da db where
   dynamics = _Wrapped . dynamics
-instance (HasDynamic a b) => HasDynamic (ColorT a) (ColorT b) where
+instance (HasDynamic a b da db) => HasDynamic (ColorT a) (ColorT b) da db where
   dynamic = _Wrapped . dynamic
 
 type instance Articulation (ColorT a)        = Articulation a
-type instance SetArticulation g (ColorT a)   = ColorT (SetArticulation g a)
-instance (HasArticulations a b) => HasArticulations (ColorT a) (ColorT b) where
+-- type instance SetArticulation g (ColorT a)   = ColorT (SetArticulation g a)
+instance (HasArticulations a b aa ab) => HasArticulations (ColorT a) (ColorT b) aa ab where
   articulations = _Wrapped . articulations
-instance (HasArticulation a b) => HasArticulation (ColorT a) (ColorT b) where
+instance (HasArticulation a b aa ab) => HasArticulation (ColorT a) (ColorT b) aa ab where
   articulation = _Wrapped . articulation
 
 
@@ -333,7 +333,7 @@ instance Bounded a => Bounded [a] where
 
 -- TODO use wrapper type and replace withContext
 type instance Dynamic (a,b,c) = (a,b,c)
-type instance SetDynamic g (a,b,c) = g
+-- type instance SetDynamic g (a,b,c) = g
 
 instance Transformable a => Transformable (Maybe a) where
   transform s = fmap (transform s)
