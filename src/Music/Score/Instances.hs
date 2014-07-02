@@ -10,6 +10,7 @@
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -------------------------------------------------------------------------------------
 -- |
@@ -91,27 +92,27 @@ instance Semigroup a => Semigroup (PartT n a) where
 --
 
 type instance Pitch (PartT p a) = Pitch a
-type instance SetPitch b (PartT p a) = PartT p (SetPitch b a)
+-- type instance SetPitch b (PartT p a) = PartT p (SetPitch b a)
 
-instance HasPitch a b => HasPitch (PartT p a) (PartT p b) where
+instance HasPitch a b p q => HasPitch (PartT r a) (PartT r b) p q where
   pitch = _Wrapped . _2 . pitch
-instance HasPitches a b => HasPitches (PartT p a) (PartT p b) where
+instance HasPitches a b p q => HasPitches (PartT r a) (PartT r b) p q where
   pitches = _Wrapped . _2 . pitches
 
 type instance Pitch (DynamicT p a) = Pitch a
-type instance SetPitch b (DynamicT p a) = DynamicT p (SetPitch b a)
+-- type instance SetPitch b (DynamicT p a) = DynamicT p (SetPitch b a)
 
-instance HasPitch a b => HasPitch (DynamicT p a) (DynamicT p b) where
+instance HasPitch a b p q => HasPitch (DynamicT p a) (DynamicT p b) p q where
   pitch = _Wrapped . _2 . pitch
-instance HasPitches a b => HasPitches (DynamicT p a) (DynamicT p b) where
+instance HasPitches a b p q => HasPitches (DynamicT p a) (DynamicT p b) p q where
   pitches = _Wrapped . _2 . pitches
 
 type instance Pitch (ArticulationT p a) = Pitch a
-type instance SetPitch b (ArticulationT p a) = ArticulationT p (SetPitch b a)
+-- type instance SetPitch b (ArticulationT p a) = ArticulationT p (SetPitch b a)
 
-instance HasPitch a b => HasPitch (ArticulationT p a) (ArticulationT p b) where
+instance HasPitch a b p q => HasPitch (ArticulationT p a) (ArticulationT p b) p q where
   pitch = _Wrapped . _2 . pitch
-instance HasPitches a b => HasPitches (ArticulationT p a) (ArticulationT p b) where
+instance HasPitches a b p q => HasPitches (ArticulationT p a) (ArticulationT p b) p q where
   pitches = _Wrapped . _2 . pitches
 
 
@@ -144,10 +145,10 @@ instance HasArticulations a b => HasArticulations (PartT p a) (PartT p b) where
 
 -- TODO move up?
 type instance Pitch (ColorT a)        = Pitch a
-type instance SetPitch g (ColorT a)   = ColorT (SetPitch g a)
-instance (HasPitches a b) => HasPitches (ColorT a) (ColorT b) where
+-- type instance SetPitch g (ColorT a)   = ColorT (SetPitch g a)
+instance (HasPitches a b p q) => HasPitches (ColorT a) (ColorT b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (ColorT a) (ColorT b) where
+instance (HasPitch a b p q) => HasPitch (ColorT a) (ColorT b) p q where
   pitch = _Wrapped . pitch
 
 type instance Dynamic (ColorT a)        = Dynamic a

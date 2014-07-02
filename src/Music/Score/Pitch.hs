@@ -15,6 +15,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 
@@ -37,7 +38,7 @@ module Music.Score.Pitch (
         
         -- * Pitch type functions
         Pitch,
-        SetPitch,
+        -- SetPitch,
         Interval,
         
         -- * Accessing pitch
@@ -171,7 +172,7 @@ type family SetPitch (b :: *) (s :: *) :: *
 -- |
 -- Class of types that provide a single pitch.
 --
-class HasPitches s t => HasPitch s t where
+class HasPitches s t a b => HasPitch s t a b | s -> a, {-t -> b, -}s b -> t{-, t a -> s-} where
 
   -- | Access the pitch.
   --
@@ -189,14 +190,13 @@ class HasPitches s t => HasPitch s t where
   --   'pitch' .~ c         :: (HasPitch' a, IsPitch a) => a -> a
   --   @
   --
-  pitch :: Lens s t (Pitch s) (Pitch t)
+  pitch :: Lens s t a b
 
 -- |
 -- Class of types that provide a pitch traversal.
 --
-class (Transformable (Pitch s),
-       Transformable (Pitch t),
-       SetPitch (Pitch t) s ~ t) => HasPitches s t where
+class (Transformable (Pitch s), a ~ Pitch s,
+       Transformable (Pitch t), b ~ Pitch t) => HasPitches s t a b | s -> a, {-t -> b, -}s b -> t{-, t a -> s-} where
 
   -- | Access all pitches.
   --
@@ -215,30 +215,30 @@ class (Transformable (Pitch s),
   --   'over' 'pitches' :: HasPitches a b => a -> b
   --   @
   --
-  pitches :: Traversal s t (Pitch s) (Pitch t)
+  pitches :: Traversal s t a b
 
-type HasPitch' a = HasPitch a a
+type HasPitch' s a = HasPitch s s a a
 
-type HasPitches' a = HasPitches a a
+type HasPitches' s a = HasPitches s s a a
 
 
 -- |
 -- Pitch type.
 --
-pitch' :: (HasPitch s t, s ~ t) => Lens' s (Pitch s)
+pitch' :: HasPitch' s a => Lens' s a
 pitch' = pitch
 {-# INLINE pitch' #-}
 
 -- |
 -- Pitch type.
 --
-pitches' :: (HasPitches s t, s ~ t) => Traversal' s (Pitch s)
+pitches' :: HasPitches' s a => Traversal' s a
 pitches' = pitches
 {-# INLINE pitches' #-}
 
 
 -- TODO flip name of this and Literal.fromPitch (or call that fromPitchL)
-fromPitch' :: (HasPitches' a, IsPitch a) => Pitch a -> a
+fromPitch' :: (HasPitches' a a, IsPitch a) => Pitch a -> a
 fromPitch' x = c & pitches' .~ x
 {-# INLINE fromPitch' #-}
 
@@ -246,14 +246,13 @@ fromPitch' x = c & pitches' .~ x
 #define PRIM_PITCH_INSTANCE(TYPE)       \
                                         \
 type instance Pitch TYPE = TYPE;        \
-type instance SetPitch a TYPE = a;      \
                                         \
 instance (Transformable a, a ~ Pitch a) \
-  => HasPitch TYPE a where {            \
+  => HasPitch TYPE a TYPE a where {            \
   pitch = ($)              } ;          \
                                         \
 instance (Transformable a, a ~ Pitch a) \
-  => HasPitches TYPE a where {          \
+  => HasPitches TYPE a TYPE a where {          \
   pitches = ($)              } ;        \
 
 
@@ -293,45 +292,45 @@ type instance SetPitch b (Track a)  = Track (SetPitch b a)
 type instance Pitch (Score a)       = Pitch a
 type instance SetPitch b (Score a)  = Score (SetPitch b a)
 
-instance HasPitch a b => HasPitch (c, a) (c, b) where
+instance HasPitch a b p q => HasPitch (c, a) (c, b) p q where
   pitch = _2 . pitch
-instance HasPitches a b => HasPitches (c, a) (c, b) where
+instance HasPitches a b p q => HasPitches (c, a) (c, b) p q where
   pitches = traverse . pitches
 
-instance (HasPitches a b) => HasPitches (Note a) (Note b) where
+instance (HasPitches a b p q) => HasPitches (Note a) (Note b) p q where
   pitches = _Wrapped . whilstL pitches
-instance (HasPitch a b) => HasPitch (Note a) (Note b) where
+instance (HasPitch a b p q) => HasPitch (Note a) (Note b) p q where
   pitch = _Wrapped . whilstL pitch
 
-instance (HasPitches a b) => HasPitches (Delayed a) (Delayed b) where
+instance (HasPitches a b p q) => HasPitches (Delayed a) (Delayed b) p q where
   pitches = _Wrapped . whilstLT pitches
-instance (HasPitch a b) => HasPitch (Delayed a) (Delayed b) where
+instance (HasPitch a b p q) => HasPitch (Delayed a) (Delayed b) p q where
   pitch = _Wrapped . whilstLT pitch
 
-instance (HasPitches a b) => HasPitches (Stretched a) (Stretched b) where
+instance (HasPitches a b p q) => HasPitches (Stretched a) (Stretched b) p q where
   pitches = _Wrapped . whilstLD pitches
-instance (HasPitch a b) => HasPitch (Stretched a) (Stretched b) where
+instance (HasPitch a b p q) => HasPitch (Stretched a) (Stretched b) p q where
   pitch = _Wrapped . whilstLD pitch
 
-instance HasPitches a b => HasPitches (Maybe a) (Maybe b) where
+instance HasPitches a b p q => HasPitches (Maybe a) (Maybe b) p q where
   pitches = traverse . pitches
 
-instance HasPitches a b => HasPitches (Either c a) (Either c b) where
+instance HasPitches a b p q => HasPitches (Either c a) (Either c b) p q where
   pitches = traverse . pitches
 
-instance HasPitches a b => HasPitches [a] [b] where
+instance HasPitches a b p q => HasPitches [a] [b] p q where
   pitches = traverse . pitches
 
-instance HasPitches a b => HasPitches (Voice a) (Voice b) where
+instance HasPitches a b p q => HasPitches (Voice a) (Voice b) p q where
   pitches = traverse . pitches
 
-instance HasPitches a b => HasPitches (Track a) (Track b) where
+instance HasPitches a b p q => HasPitches (Track a) (Track b) p q where
   pitches = traverse . pitches
 
-instance HasPitches a b => HasPitches (Chord a) (Chord b) where
+instance HasPitches a b p q => HasPitches (Chord a) (Chord b) p q where
   pitches = traverse . pitches
 
-instance (HasPitches a b) => HasPitches (Score a) (Score b) where
+instance (HasPitches a b p q) => HasPitches (Score a) (Score b) p q where
   pitches =
     _Wrapped . _2   -- into NScore
     . _Wrapped
@@ -343,17 +342,16 @@ instance (HasPitches a b) => HasPitches (Score a) (Score b) where
 type instance Pitch (Sum a) = Pitch a
 type instance SetPitch b (Sum a) = Sum (SetPitch b a)
 
-instance HasPitches a b => HasPitches (Sum a) (Sum b) where
+instance HasPitches a b p q => HasPitches (Sum a) (Sum b) p q where
   pitches = _Wrapped . pitches
 
 type instance Pitch      (Behavior a) = Behavior a
 type instance SetPitch b (Behavior a) = b
 
-instance (Transformable a, Transformable b, b ~ Pitch b) => HasPitches (Behavior a) b where
+instance (Transformable a, Transformable b, b ~ Pitch b) => HasPitches (Behavior a) b (Behavior a) b where
   pitches = ($)
-instance (Transformable a, Transformable b, b ~ Pitch b) => HasPitch (Behavior a) b where
+instance (Transformable a, Transformable b, b ~ Pitch b) => HasPitch (Behavior a) b (Behavior a) b where
   pitch = ($)
-
 
 type instance Pitch (Couple c a)        = Pitch a
 type instance SetPitch g (Couple c a)   = Couple c (SetPitch g a)
@@ -368,34 +366,34 @@ type instance SetPitch g (TieT a)       = TieT (SetPitch g a)
 type instance Pitch (SlideT a)          = Pitch a
 type instance SetPitch g (SlideT a)     = SlideT (SetPitch g a)
 
-instance (HasPitches a b) => HasPitches (Couple c a) (Couple c b) where
+instance (HasPitches a b p q) => HasPitches (Couple c a) (Couple c b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (Couple c a) (Couple c b) where
+instance (HasPitch a b p q) => HasPitch (Couple c a) (Couple c b) p q where
   pitch = _Wrapped . pitch
 
-instance (HasPitches a b) => HasPitches (TremoloT a) (TremoloT b) where
+instance (HasPitches a b p q) => HasPitches (TremoloT a) (TremoloT b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (TremoloT a) (TremoloT b) where
+instance (HasPitch a b p q) => HasPitch (TremoloT a) (TremoloT b) p q where
   pitch = _Wrapped . pitch
 
-instance (HasPitches a b) => HasPitches (TextT a) (TextT b) where
+instance (HasPitches a b p q) => HasPitches (TextT a) (TextT b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (TextT a) (TextT b) where
+instance (HasPitch a b p q) => HasPitch (TextT a) (TextT b) p q where
   pitch = _Wrapped . pitch
 
-instance (HasPitches a b) => HasPitches (HarmonicT a) (HarmonicT b) where
+instance (HasPitches a b p q) => HasPitches (HarmonicT a) (HarmonicT b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (HarmonicT a) (HarmonicT b) where
+instance (HasPitch a b p q) => HasPitch (HarmonicT a) (HarmonicT b) p q where
   pitch = _Wrapped . pitch
 
-instance (HasPitches a b) => HasPitches (TieT a) (TieT b) where
+instance (HasPitches a b p q) => HasPitches (TieT a) (TieT b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (TieT a) (TieT b) where
+instance (HasPitch a b p q) => HasPitch (TieT a) (TieT b) p q where
   pitch = _Wrapped . pitch
 
-instance (HasPitches a b) => HasPitches (SlideT a) (SlideT b) where
+instance (HasPitches a b p q) => HasPitches (SlideT a) (SlideT b) p q where
   pitches = _Wrapped . pitches
-instance (HasPitch a b) => HasPitch (SlideT a) (SlideT b) where
+instance (HasPitch a b p q) => HasPitch (SlideT a) (SlideT b) p q where
   pitch = _Wrapped . pitch
 
 
@@ -408,7 +406,7 @@ type Interval a = Diff (Pitch a)
 -- Class of types that can be transposed, inverted and so on.
 --
 type Transposable a
-  = (HasPitches a a,
+  = (HasPitches a a (Pitch a) (Pitch a),
      VectorSpace (Interval a), AffineSpace (Pitch a),
      IsInterval (Interval a), IsPitch (Pitch a),
      Num (Scalar (Interval a)))
@@ -516,19 +514,19 @@ _15vb = octavesDown 2
 -- |
 -- Return the highest pitch in the given music.
 --
-highestPitch :: (HasPitches' a, Ord (Pitch a)) => a -> Pitch a
+highestPitch :: (HasPitches' a p, Ord (Pitch a)) => a -> Pitch a
 highestPitch = maximum . toListOf pitches'
 
 -- |
 -- Return the lowest pitch in the given music.
 --
-lowestPitch :: (HasPitches' a, Ord (Pitch a)) => a -> Pitch a
+lowestPitch :: (HasPitches' a p, Ord (Pitch a)) => a -> Pitch a
 lowestPitch = maximum . toListOf pitches'
 
 -- |
 -- Return the mean pitch in the given music.
 --
-meanPitch :: (HasPitches' a, Fractional (Pitch a)) => a -> Pitch a
+meanPitch :: (HasPitches' a p, Fractional (Pitch a)) => a -> Pitch a
 meanPitch = mean . toListOf pitches'
   where
     mean x = fst $ foldl (\(m, n) x -> (m+(x-m)/(n+1),n+1)) (0,0) x
