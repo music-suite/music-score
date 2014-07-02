@@ -79,13 +79,13 @@ infixr 6 </>
 -- |
 -- Concatenate parts.
 --
-rcat :: (HasParts' a, Enum (Part a)) => [Score a] -> Score a
+rcat :: (HasParts' a pa, Enum (Part a)) => [Score a] -> Score a
 rcat = List.foldr (</>) mempty
 
 -- |
 -- Similar to '<>', but increases parts in the second part to prevent collision.
 --
-(</>) :: (HasParts' a, Enum (Part a)) => Score a -> Score a -> Score a
+(</>) :: (HasParts' a pa, Enum (Part a)) => Score a -> Score a -> Score a
 a </> b = a <> moveParts offset b
     where
         -- max voice in a + 1
@@ -94,13 +94,13 @@ a </> b = a <> moveParts offset b
         -- |
         -- Move down one voice (all parts).
         --
-        moveParts :: (Integral b, HasParts' a, Enum (Part a)) => b -> Score a -> Score a
+        moveParts :: (Integral b, HasParts' a pa, Enum (Part a)) => b -> Score a -> Score a
         moveParts x = parts %~ (successor x)
 
         -- |
         -- Move top-part to the specific voice (other parts follow).
         --
-        moveToPart :: (Enum b, HasParts' a, Enum (Part a)) => b -> Score a -> Score a
+        moveToPart :: (Enum b, HasParts' a pa, Enum (Part a)) => b -> Score a -> Score a
         moveToPart v = moveParts (fromEnum v)
 
 

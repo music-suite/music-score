@@ -81,13 +81,13 @@ instance Monad ClefT where
 
 
 type instance Part (ClefT a) = Part a
-type instance SetPart b (ClefT a) = ClefT (SetPart b a)
+-- type instance SetPart b (ClefT a) = ClefT (SetPart b a)
 
 
-instance (HasParts a b) => HasParts (ClefT a) (ClefT b) where
+instance (HasParts a b pa pb) => HasParts (ClefT a) (ClefT b) pa pb where
   parts = _Wrapped . parts
 
-instance (HasPart a b) => HasPart (ClefT a) (ClefT b) where
+instance (HasPart a b pa pb) => HasPart (ClefT a) (ClefT b) pa pb where
   part = _Wrapped . part
 
 
@@ -106,7 +106,7 @@ instance HasClef (ClefT a) where
 instance HasClef a => HasClef (b,a) where
   applyClef c = fmap (applyClef c)
 
-instance (HasPart' a, HasClef a) => HasClef (Score a) where
+instance (HasPart' a pa, HasClef a) => HasClef (Score a) where
   applyClef c = id -- TODO
   -- applyClef c = mapFirst (applyClef c) id
 

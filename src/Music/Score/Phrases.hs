@@ -11,6 +11,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -------------------------------------------------------------------------------------
 -- |
@@ -109,7 +110,7 @@ instance HasPhrases (PVoice a) (PVoice b) a b where
   mvoices = from unsafeMvoicePVoice
 
 -- | Traverses all phrases in each voice, using 'extracted'.
-instance (HasPart' a, {-HasPart a b, -}{-Transformable a,-} Ord (Part a)) =>
+instance (HasPart' a pa, {-HasPart a b, -}{-Transformable a,-} Ord (Part a)) =>
   HasPhrases (Score a) (Score b) a b where
   mvoices = extracted . each . singleMVoice
 

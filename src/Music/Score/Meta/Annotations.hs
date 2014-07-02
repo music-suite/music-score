@@ -69,14 +69,14 @@ annotateSpan :: Span -> String -> Score a -> Score a
 annotateSpan span str x = addGlobalMetaNote (transform span $ return $ Annotation [str]) x
 
 -- | Show all annotations in the score.
-showAnnotations :: (HasPart' a, Ord (Part a), HasText a) => Score a -> Score a
+showAnnotations :: (HasPart' a pa, Ord (Part a), HasText a) => Score a -> Score a
 showAnnotations = showAnnotations' ":"
 
 -- | Show all annotations in the score using the given prefix.
-showAnnotations' :: (HasPart' a, Ord (Part a), HasText a) => String -> Score a -> Score a
+showAnnotations' :: (HasPart' a pa, Ord (Part a), HasText a) => String -> Score a -> Score a
 showAnnotations' prefix = withAnnotations (flip $ \s -> foldr (text . (prefix ++ )) s)
 
 -- | Handle the annotations in a score.
-withAnnotations :: (HasParts' a, HasText a) => ([String] -> Score a -> Score a) -> Score a -> Score a
+withAnnotations :: (HasParts' a pa, HasText a) => ([String] -> Score a -> Score a) -> Score a -> Score a
 withAnnotations f = withGlobalMeta (f . getAnnotation)
 

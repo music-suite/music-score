@@ -87,7 +87,7 @@ type HasDynamicNotation a b c = (
   Real (Dynamic a),
   Part (SetDynamic (Dynamic a) a) ~ Part (SetDynamic DynamicNotation b)
  )
-type HasOrdPart a = (HasPart' a, Ord (Part a))
+type HasOrdPart a = (HasPart' a (Part a), Ord (Part a))
 
 
 

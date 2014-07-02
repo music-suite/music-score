@@ -102,17 +102,17 @@ instance HasPitches a b p q => HasPitches (PartT r a) (PartT r b) p q where
 type instance Pitch (DynamicT p a) = Pitch a
 -- type instance SetPitch b (DynamicT p a) = DynamicT p (SetPitch b a)
 
-instance HasPitch a b p q => HasPitch (DynamicT p a) (DynamicT p b) p q where
+instance HasPitch a b pa pb => HasPitch (DynamicT p a) (DynamicT p b) pa pb where
   pitch = _Wrapped . _2 . pitch
-instance HasPitches a b p q => HasPitches (DynamicT p a) (DynamicT p b) p q where
+instance HasPitches a b pa pb => HasPitches (DynamicT p a) (DynamicT p b) pa pb where
   pitches = _Wrapped . _2 . pitches
 
 type instance Pitch (ArticulationT p a) = Pitch a
 -- type instance SetPitch b (ArticulationT p a) = ArticulationT p (SetPitch b a)
 
-instance HasPitch a b p q => HasPitch (ArticulationT p a) (ArticulationT p b) p q where
+instance HasPitch a b pa pb => HasPitch (ArticulationT p a) (ArticulationT p b) pa pb where
   pitch = _Wrapped . _2 . pitch
-instance HasPitches a b p q => HasPitches (ArticulationT p a) (ArticulationT p b) p q where
+instance HasPitches a b pa pb => HasPitches (ArticulationT p a) (ArticulationT p b) pa pb where
   pitches = _Wrapped . _2 . pitches
 
 

@@ -67,7 +67,7 @@ import qualified Music.Pitch.Literal       as Pitch
 type IsMidi a = (
     -- TODO
     IsPitch a,
-    HasPart' a,
+    HasPart' a (Part a),
     Ord (Part a),
     Enum (Part a),
     -- HasPitch a,

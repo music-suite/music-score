@@ -173,7 +173,7 @@ instance HasBackend Midi where
       endDelta    = 10000
 
 
-instance (HasPart' a, HasMidiProgram (Part a)) => HasBackendScore Midi (Voice a) where
+instance (HasPart' a pa, HasMidiProgram (Part a)) => HasBackendScore Midi (Voice a) where
   type BackendScoreEvent Midi (Voice a) = a
   -- exportScore _ xs = MidiScore [((getMidiChannel (xs^?!parts), getMidiProgram (xs^?!parts)), fmap <$> voiceToScore xs)]
   exportScore _ xs = MidiScore [((getMidiChannel (xs^?!parts), getMidiProgram (xs^?!parts)), fmap Identity $ voiceToScore xs)]
@@ -181,7 +181,7 @@ instance (HasPart' a, HasMidiProgram (Part a)) => HasBackendScore Midi (Voice a)
       voiceToScore :: Voice a -> Score a
       voiceToScore = error "FIXME"
 
-instance (HasPart' a, Ord (Part a), HasMidiProgram (Part a)) => HasBackendScore Midi (Score a) where
+instance (HasPart' a pa, Ord (Part a), HasMidiProgram (Part a)) => HasBackendScore Midi (Score a) where
   type BackendScoreEvent Midi (Score a) = a
   exportScore _ xs = MidiScore (map (\(p,sc) -> ((getMidiChannel p, getMidiProgram p), fmap Identity sc)) $ extractParts' $ fixTempo xs)
     where

@@ -150,7 +150,7 @@ instance () => HasBackendScore SuperCollider (Voice (Maybe a)) where
   type BackendScoreEvent SuperCollider (Voice (Maybe a)) = a
   exportScore _ xs = Identity <$> ScScore [view eventsV xs]
 
-instance (HasPart' a, Ord (Part a)) => HasBackendScore SuperCollider (Score a) where
+instance (HasPart' a pa, Ord (Part a)) => HasBackendScore SuperCollider (Score a) where
   type BackendScoreEvent SuperCollider (Score a) = a
   exportScore b = mconcat
     . map (exportScore b . view singleMVoice)
