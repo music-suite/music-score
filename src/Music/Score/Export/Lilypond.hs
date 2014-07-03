@@ -15,6 +15,7 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE UndecidableInstances      #-}
 {-# LANGUAGE ViewPatterns              #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 
 -------------------------------------------------------------------------------------
 -- |
@@ -81,6 +82,8 @@ import           Music.Pitch.Literal
 import           Music.Score.Articulation
 import           Music.Score.Color
 import           Music.Score.Dynamics
+import           Music.Score.Part
+import           Music.Score.Pitch
 import           Music.Score.Export.ArticulationNotation
 import           Music.Score.Export.Backend
 import           Music.Score.Export.Backend
@@ -212,120 +215,250 @@ instance HasBackend Lilypond where
             where
               (a,b) = bimap fromIntegral fromIntegral $ unRatio $ realToFrac m
 
--- type HasArticulation3 c d e = (
---   HasArticulation' c,
---   HasArticulation c d,
---   HasArticulation d e,
---   HasArticulation c e
---   )
+
+pitchInVoice :: (HasPitch' a d, HasPitch a b d d') => 
+  Lens (Voice a) (Voice b) 
+       (Voice (Pitch a)) (Voice (Pitch b))
+pitchInVoice = voiceLens (view pitch) (set pitch)
+
+partInVoice :: (HasPart' a d, HasPart a b d d') => 
+  Lens (Voice a) (Voice b) 
+       (Voice (Part a)) (Voice (Part b))
+partInVoice = voiceLens (view part) (set part)
+
+dynamicInVoice :: (HasDynamic' a d, HasDynamic a b d d') => 
+  Lens (Voice a) (Voice b) 
+       (Voice (Dynamic a)) (Voice (Dynamic b))
+dynamicInVoice = voiceLens (view dynamic) (set dynamic)
+
+articulationInVoice :: (HasArticulation' a d, HasArticulation a b d d') => 
+  Lens (Voice a) (Voice b) 
+       (Voice (Articulation a)) (Voice (Articulation b))
+articulationInVoice = voiceLens (view articulation) (set articulation)
+
+
+
+
+chordAsList :: Iso (Chord a) (Chord b) [a] [b]
+listAsChord :: Iso [a] [b] (Chord a) (Chord b)
+chordAsList = error "No chordAsList"
+listAsChord = from chordAsList
+
+rangeAsDelta :: Iso' (Time, Time) (Time, Duration)
+rangeAsDelta = from range . delta
+
+deltaAsRange :: Iso' (Time, Duration) (Time, Time)
+deltaAsRange = from delta . range
+
+
+
+-- TODO prettify constraint, i.e. (HasAspects p r d a) or similar
+exportVoice :: (
+  HasPitch' a (Pitch a),
+  HasPart' a (Part a),
+  HasDynamic' a (Dynamic a),            Real (Dynamic a),
+  HasArticulation' a (Articulation a),  Articulation a ~ (Sum Double, Sum Double),
+  Empty
+  ) 
+  => HasBackendNote Lilypond a => Voice a -> Voice LyMusic
+exportVoice v = fmap reduceLyMusicC v2
+  where
+    v2 = zipVoiceNoScale4 r a d p
+    r = fmap notatePart         $ withContext $ view partInVoice v
+    a = fmap notateArticulation $ withContext $ view articulationInVoice v
+    d = fmap notateDynamic      $ withContext $ view dynamicInVoice v
+    p = fmap notatePitch        $ withContext $ view pitchInVoice v
+    notatePart = (const ()) . extractCtxt
+    notatePitch = extractCtxt
+
+type PartNotation = ()
+
+reduceLyMusicC :: (PartNotation, (ArticulationNotation, (DynamicNotation, p))) -> LyMusic
+reduceLyMusicC = error "No reduceLyMusicC" -- TODO uncurry reduceLyMusic
+  
+reduceLyMusic :: PartNotation -> ArticulationNotation -> DynamicNotation -> p -> LyMusic
+reduceLyMusic = error "No reduceLyMusicC"
+
+-- expVoice :: (
+--   ) 
+--   => HasBackendNote Lilypond a => Voice (Chord a) -> LyStaff LyMusic
+-- expVoice v = undefined
+--   where
+--     dyn = view articulationInInVoice v      
+
+
+-- class (HasBackend b) => HBS b s a | s -> a where
+--   -- type BSE b s :: *
+--   exportScore :: b -> s -> BackendScore b (BackendContext b a)
 -- 
--- type HasArticulationNotation a b c = (
---   HasArticulation3 a b c,
---   Articulation b  ~ Ctxt (Articulation a),
---   Articulation c ~ ArticulationNotation,
---   -- TODO generalize
---   Articulation a ~ (Sum Double, Sum Double)
---  )
 
--- type HasDynamicNotation' a b c = (HasDynamicNotation a b c,
---   -- HasDynamics' a,
---   -- HasDynamics' b,
---   -- SetDynamic (Dynamic a) a ~ a,
---   -- SetDynamic (Dynamic b) b ~ b,
+-- Empty :: Constraint
+type Empty = (() ~ ())
+
+-- 
+-- rewriteDyn
+--   :: (
+--       HasPhrases s s2 a b, 
+--       HasDynamic' a dyn, 
+--       HasDynamic a b dyn (Ctxt dyn),
+--       
+--       HasDynamics s2 t (Ctxt dyn) DynamicNotation,
+--       
+--       HasPhrases' t c, HasDynamics' c DynamicNotation,
+--       Real dyn
+--       ) =>
+--      s -> t
+-- rewriteDyn = removeCloseDynMarks . over dynamics notateDynamic . addDynCon1
+-- 
+-- addDynCon1 :: (HasPhrases s t a b, HasDynamic' a d, HasDynamic a b d (Ctxt d)) => s -> t
+-- addDynCon1 = over (phrases.vdynamic) withContext
+-- 
+-- _exportScore :: (
+--       Ord (Part a1), 
+--       Ord (Part b), 
+--       Real (Dynamic a1), 
+--       Show (Part a1),
+--       Semigroup a1, Tiable a, Transformable a1,
+--       HasArticulations
+--         b1
+--         a
+--         (Maybe (Sum Double, Sum Double),
+--          (Sum Double, Sum Double),
+--          Maybe (Sum Double, Sum Double))
+--         ArticulationNotation,
+--       HasArticulation
+--         b b (Sum Double, Sum Double) (Sum Double, Sum Double),
+--       HasArticulation
+--         b
+--         b1
+--         (Sum Double, Sum Double)
+--         (Maybe (Sum Double, Sum Double),
+--          (Sum Double, Sum Double),
+--          Maybe (Sum Double, Sum Double)),
+--       HasDynamics
+--         b2
+--         b
+--         (Maybe (Dynamic a1), Dynamic a1, Maybe (Dynamic a1))
+--         DynamicNotation,
+--       HasDynamics b b DynamicNotation DynamicNotation,
+--       HasDynamic a1 a1 (Dynamic a1) (Dynamic a1),
+--       HasDynamic
+--         a1
+--         b2
+--         (Dynamic a1)
+--         (Maybe (Dynamic a1), Dynamic a1, Maybe (Dynamic a1)),
+--       HasPart a1 a1 (Part a1) (Part a1), HasPart b b (Part b) (Part b),
+--       HasLilypondInstrument (Part a1), Part a ~ Part a1,
+--       Dynamic b2 ~ (Maybe (Dynamic a1), Dynamic a1, Maybe (Dynamic a1)),
+--       Dynamic b ~ DynamicNotation
+--       ) =>
+--      t -> Score a1 -> LyScore (LyContext a)
+-- _exportScore b score = LyScore
+--   . (ScoreInfo,)
+--   . map (uncurry $ exportPart timeSignatureMarks barDurations)
+-- 
+--   . map (second $ over articulations notateArticulation)
+--   . map (second $ preserveMeta addArtCon)
+-- 
+--   . map (second $ rewriteDyn)
+-- 
+--   . map (second $ preserveMeta simultaneous)
+--   . extractParts'
+--   . normalizeScore
+--   $ score
+--   where
+--     (timeSignatureMarks, barDurations) = extractTimeSignatures score
+-- 
+-- _exportScore2
+--   :: (Ord (Part a), Show (Part a), 
+--       Tiable a,
+--       HasPart' a (Part a), HasLilypondInstrument (Part a)
+--    ) =>
+--      t -> Score a -> LyScore (LyContext a)
+-- _exportScore2 b score = LyScore
+--   . (ScoreInfo,)
+--   . map (uncurry $ exportPart timeSignatureMarks barDurations)
+-- 
+--   . map (second id)
+-- 
+--   . extractParts'
+--   . normalizeScore
+--   $ score
+--   where
+--     (timeSignatureMarks, barDurations) = extractTimeSignatures score
+-- 
+-- 
+-- foo
+--   :: (HasArticulation' s (Articulation s),
+--       HasDynamic'      s (Dynamic s),
+--       HasPart'         s (Part s), 
+--       HasPitch'        s (Pitch s)
+--       ) =>
+--      
+--      s -> (Pitch s, Dynamic s, Articulation s, Part s)
+--      
+-- foo x = (x^.pitch, x^.dynamic, x^.articulation, x^.part)
+-- 
+-- 
+-- -- | Export a score as a single part. Overlapping notes will cause an error.
+-- exportPart :: (
+--   Show (Part a),
+--   HasLilypondInstrument (Part a),
+--   Tiable a
 --   )
+--   => [Maybe TimeSignature]
+--   -> [Duration]
+--   -> Part a
+--   -> Score a
+--   -> LyStaff (LyContext a)
+-- 
+-- exportStaff :: Tiable a
+--   => [Maybe TimeSignature]
+--   -> [Duration]
+--   -> String -- ^ name
+--   -> Int    -- ^ clef, as per Music.Parts
+--   -> MVoice a
+--   -> LyStaff (LyContext a)
+-- 
+-- exportBar :: Tiable a
+--   => Maybe TimeSignature
+--   -> MVoice a
+--   -> LyBar (LyContext a)
+-- 
+-- quantizeBar :: Tiable a
+--   => MVoice a
+--   -> Rhythm (LyContext a)
+-- 
+-- exportPart timeSignatureMarks barDurations part
+--   = exportStaff timeSignatureMarks barDurations (show part) (getLilypondClef part)
+--   . view singleMVoice
+-- 
+-- exportStaff timeSignatures barDurations name clefId
+--   = LyStaff
+--   . addStaffInfo
+--   . zipWith exportBar timeSignatures
+--   . splitIntoBars barDurations
+--   where
+--     clef = case clefId of
+--       0 -> Lilypond.Treble
+--       1 -> Lilypond.Alto
+--       2 -> Lilypond.Bass
+--     addStaffInfo  = (,) $ StaffInfo { staffName = name, staffClef = clef }
+--     splitIntoBars = splitTiesVoiceAt
+-- 
+-- exportBar timeSignature
+--   = LyBar
+--   . addBarInfo
+--   . quantizeBar
+--  where
+--    addBarInfo = (,) $ BarInfo timeSignature
+-- 
+-- quantizeBar = mapWithDur LyContext . rewrite . handleErrors . quantize . view eventsV
+--   where
+--     -- FIXME propagate quantization errors
+--     handleErrors (Left e)  = error $ "Quantization failed: " ++ e
+--     handleErrors (Right x) = x            
 
-instance (
-  -- HasDynamicNotation a b c,
-  -- HasArticulationNotation c d e,
-  -- Part e ~ Part c,
-  -- HasOrdPart a,
-  -- Transformable a,
-  -- Semigroup a,
-  -- Tiable e,
-  -- HasOrdPart c, Show (Part c), HasLilypondInstrument (Part c)  
-  )
-  => HasBackendScore Lilypond (Score a) where
-
-  type BackendScoreEvent Lilypond (Score a) = {-SetArticulation ArticulationNotation-} ({-SetDynamic DynamicNotation-} a)
-
-  -- exportScore b score = LyScore
-  --   . (ScoreInfo,)
-  --   . map (uncurry $ exportPart timeSignatureMarks barDurations)
-  -- 
-  --   . map (second $ over articulations notateArticulation)
-  --   . map (second $ preserveMeta addArtCon)
-  -- 
-  --   . map (second $ removeCloseDynMarks)
-  --   . map (second $ over dynamics notateDynamic)
-  --   . map (second $ preserveMeta addDynCon)
-  -- 
-  --   . map (second $ preserveMeta simultaneous)
-  --   . extractParts'
-  --   . normalizeScore
-  --   $ score
-  --   where
-  --     (timeSignatureMarks, barDurations) = extractTimeSignatures score
-  -- 
-  -- 
-  --     -- | Export a score as a single part. Overlapping notes will cause an error.
-  --     exportPart :: (
-  --       Show (Part a),
-  --       HasLilypondInstrument (Part a),
-  --       Tiable a
-  --       )
-  --       => [Maybe TimeSignature]
-  --       -> [Duration]
-  --       -> Part a
-  --       -> Score a
-  --       -> LyStaff (LyContext a)
-  -- 
-  --     exportStaff :: Tiable a
-  --       => [Maybe TimeSignature]
-  --       -> [Duration]
-  --       -> String -- ^ name
-  --       -> Int    -- ^ clef, as per Music.Parts
-  --       -> MVoice a
-  --       -> LyStaff (LyContext a)
-  -- 
-  --     exportBar :: Tiable a
-  --       => Maybe TimeSignature
-  --       -> MVoice a
-  --       -> LyBar (LyContext a)
-  -- 
-  --     quantizeBar :: Tiable a
-  --       => MVoice a
-  --       -> Rhythm (LyContext a)
-  -- 
-  --     exportPart timeSignatureMarks barDurations part
-  --       = exportStaff timeSignatureMarks barDurations (show part) (getLilypondClef part)
-  --       . view singleMVoice
-  -- 
-  --     exportStaff timeSignatures barDurations name clefId
-  --       = LyStaff
-  --       . addStaffInfo
-  --       . zipWith exportBar timeSignatures
-  --       . splitIntoBars barDurations
-  --       where
-  --         clef = case clefId of
-  --           0 -> Lilypond.Treble
-  --           1 -> Lilypond.Alto
-  --           2 -> Lilypond.Bass
-  --         addStaffInfo  = (,) $ StaffInfo { staffName = name, staffClef = clef }
-  --         splitIntoBars = splitTiesVoiceAt
-  -- 
-  --     exportBar timeSignature
-  --       = LyBar
-  --       . addBarInfo
-  --       . quantizeBar
-  --      where
-  --        addBarInfo = (,) $ BarInfo timeSignature
-  -- 
-  --     quantizeBar = mapWithDur LyContext . rewrite . handleErrors . quantize . view eventsV
-  --       where
-  --         -- FIXME propagate quantization errors
-  --         handleErrors (Left e)  = error $ "Quantization failed: " ++ e
-  --         handleErrors (Right x) = x
-  --               
 
 --------------------------------------------------------------------------------
 
@@ -642,26 +775,24 @@ openLilypond' options sc = do
 
 
 
-{-
 -- TODO move
-addArtCon :: (
-  HasPhrases s t a b, HasArticulation a a, HasArticulation a b,
-  Articulation a ~ d, Articulation b ~ Ctxt d
-  ) => s -> t
+addArtCon :: (HasArticulation' a (Articulation a),
+              HasArticulation a b (Articulation a) (Ctxt (Articulation a)),
+              HasPhrases s t a b) => s -> t
 addArtCon = over (phrases.varticulation) withContext
-varticulation = lens (fmap $ view articulation) (flip $ zipVoiceWithNoScale (set articulation))
--}
 
-{-
-removeCloseDynMarks :: (HasPhrases' s a, HasDynamics' a, Dynamic a ~ DynamicNotation, a ~ SetDynamic (Dynamic a) a) => s -> s
+varticulation :: (HasArticulation a c (Articulation a) (Articulation c),
+                  HasArticulation a a (Articulation a) (Articulation a)) => Lens (Voice a) (Voice c) (Voice (Articulation a)) (Voice (Articulation c))
+varticulation = lens (fmap $ view articulation) (flip $ zipVoiceWithNoScale (set articulation))
+
+removeCloseDynMarks :: (HasPhrases' s a, HasDynamics' a DynamicNotation) => s -> s
 removeCloseDynMarks = mapPhrasesWithPrevAndCurrentOnset f
   where
     f Nothing t    = id
     f (Just t1) t2 = if (t2 .-. t1) > 1.5 then id else over (_head.mapped) removeDynMark
 
-removeDynMark :: (HasDynamics' a, Dynamic a ~ DynamicNotation, a ~ SetDynamic (Dynamic a) a) => a -> a
+removeDynMark :: (HasDynamics' a DynamicNotation) => a -> a
 removeDynMark x = set (dynamics' . _Wrapped' . _2) Nothing x
--}
 
 
 
