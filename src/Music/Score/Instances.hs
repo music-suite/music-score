@@ -332,7 +332,7 @@ instance Bounded a => Bounded [a] where
 
 
 -- TODO use wrapper type and replace withContext
-type instance Dynamic (a,b,c) = (a,b,c)
+type instance Dynamic (a,b,c) = Dynamic b
 -- type instance SetDynamic g (a,b,c) = g
 
 instance Transformable a => Transformable (Maybe a) where

@@ -17,6 +17,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 
 -------------------------------------------------------------------------------------
 -- |
@@ -133,7 +134,7 @@ class (
   Transformable (Dynamic t), b ~ Dynamic t
   -- SetDynamic (Dynamic t) s ~ t
   -- DynamicLensLaws s t
-  ) => HasDynamics s t a b where
+  ) => HasDynamics s t a b | s -> a, {-t -> b, -}s b -> t{-, t a -> s-} where
 
   -- | Access all dynamics.
   dynamics :: Traversal s t a b

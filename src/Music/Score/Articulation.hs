@@ -15,6 +15,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 -------------------------------------------------------------------------------------
@@ -130,7 +131,7 @@ class (HasArticulations s t a b) => HasArticulation s t a b where
 -- Class of types that provide a articulation traversal.
 --
 class (Transformable (Articulation s), Articulation s ~ a,
-       Transformable (Articulation t), Articulation t ~ b) => HasArticulations s t a b where
+       Transformable (Articulation t), Articulation t ~ b) => HasArticulations s t a b | s -> a, {-t -> b, -}s b -> t{-, t a -> s-} where
 
   -- | Articulation type.
   articulations :: Traversal s t a b
