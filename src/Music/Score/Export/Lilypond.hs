@@ -253,6 +253,9 @@ deltaAsRange = from delta . range
 
 
 -- TODO prettify constraint, i.e. (HasAspects p r d a) or similar
+-- TODO remove close dynamics
+-- This is phrase-wise, that happens with a full MVoice?
+-- TODO what about chords?
 exportVoice :: (
   HasPitch' a (Pitch a),
   HasPart' a (Part a),
@@ -287,10 +290,10 @@ reduceLyMusic = error "No reduceLyMusicC"
 --     dyn = view articulationInInVoice v      
 
 
--- class (HasBackend b) => HBS b s a | s -> a where
---   -- type BSE b s :: *
---   exportScore :: b -> s -> BackendScore b (BackendContext b a)
--- 
+-- TODO fake
+instance HasBackendScore Lilypond (Score a) where
+  type BackendScoreEvent Lilypond (Score a) = a
+  exportScore _ = error "Fake"
 
 -- Empty :: Constraint
 type Empty = (() ~ ())
