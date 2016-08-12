@@ -71,11 +71,8 @@ breakList n z = Data.Monoid.mconcat . Data.List.intersperse z . divideList n
 -- > category : List
 -- > depends : base
 mapIndexed :: (Int -> a -> b) -> [a] -> [b]
-mapIndexed f as = map (uncurry f) (zip is as)
-    where
-        n  = length as - 1
-        is = [0..n]
-        
+mapIndexed f as = map (uncurry f) (zip [0..] as)
+
 -- test
 
 -- | Duplicate an element.
