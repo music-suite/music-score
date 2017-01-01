@@ -11,6 +11,7 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 -------------------------------------------------------------------------------------
 -- |

@@ -75,6 +75,7 @@ import           Control.Monad.Plus
 import           Data.Foldable            (Foldable)
 import qualified Data.Foldable            as F
 import           Data.Functor.Adjunction  (unzipR)
+import           Data.Functor.Classes
 import           Data.Functor.Couple
 import           Data.Functor.Rep
 import qualified Data.List                as List
@@ -251,6 +252,15 @@ instance Rewrapped (AddMeta a) (AddMeta b)
 instance HasMeta (AddMeta a) where
   -- twain, pair, element
   meta = _Wrapped . _Wrapped . _1
+
+instance Eq1 AddMeta where
+  liftEq k (AddMeta (Twain (m,a))) (AddMeta (Twain (m',b))) = k a b
+instance Eq a => Eq1 (Couple a) where
+  liftEq k (Couple (b,a)) (Couple (b',a')) = k a a'
+instance Ord1 AddMeta where
+  liftCompare k (AddMeta (Twain (m,a))) (AddMeta (Twain (m',b))) = k a b
+instance Ord a => Ord1 (Couple a) where
+  liftCompare k (Couple (b,a)) (Couple (b',a')) = k a a'
 
 
 -- instance FunctorWithIndex i AddMeta where

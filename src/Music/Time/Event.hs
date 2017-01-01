@@ -86,14 +86,6 @@ import           Music.Time.Meta
 -- TODO move
 instance Traversable AddMeta where
   traverse = annotated
-instance Eq1 AddMeta where
-  eq1 = (==)
-instance Eq a => Eq1 (Couple a) where
-  eq1 = (==)
-instance Ord1 AddMeta where
-  compare1 = compare
-instance Ord a => Ord1 (Couple a) where
-  compare1 = compare
 
 instance Num (f (g a)) => Num (Compose f g a) where
   Compose a + Compose b = Compose (a + b)
